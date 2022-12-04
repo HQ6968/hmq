@@ -4,7 +4,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/fhmq/hmq/logger"
+	"github.com/HQ6968/hmq/logger"
 )
 
 var log = logger.Get()

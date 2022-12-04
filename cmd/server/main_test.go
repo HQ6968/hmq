@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/fhmq/hmq/broker"
+	"github.com/HQ6968/hmq/broker"
 	"go.uber.org/zap"
 	"testing"
 )

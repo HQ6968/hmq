@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fhmq/hmq/broker/lib/sessions"
-	"github.com/fhmq/hmq/broker/lib/topics"
-	"github.com/fhmq/hmq/pool"
+	"github.com/HQ6968/hmq/broker/lib/sessions"
+	"github.com/HQ6968/hmq/broker/lib/topics"
+	"github.com/HQ6968/hmq/pool"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"go.uber.org/zap"
