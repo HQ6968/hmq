@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
-	uuid "github.com/google/uuid"
+	"github.com/google/uuid"
 )
 
 const (

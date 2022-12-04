@@ -10,8 +10,6 @@ import (
 
 	"github.com/fhmq/hmq/broker/lib/sessions"
 	"github.com/fhmq/hmq/broker/lib/topics"
-	"github.com/fhmq/hmq/plugins/auth"
-	"github.com/fhmq/hmq/plugins/bridge"
 	"github.com/fhmq/hmq/pool"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
@@ -43,17 +41,8 @@ type Broker struct {
 	clusterPool chan *Message
 	topicsMgr   *topics.Manager
 	sessionMgr  *sessions.Manager
-	auth        auth.Auth
-	bridgeMQ    bridge.BridgeMQ
-}
-
-func newMessagePool() []chan *Message {
-	pool := make([]chan *Message, 0)
-	for i := 0; i < MessagePoolNum; i++ {
-		ch := make(chan *Message, MessagePoolMessageNum)
-		pool = append(pool, ch)
-	}
-	return pool
+	auth        Auth
+	bridgeMQ    Bridge
 }
 
 func getAdditionalLogFields(clientIdentifier string, conn net.Conn, additionalFields ...zapcore.Field) []zapcore.Field {
@@ -87,9 +76,14 @@ func getAdditionalLogFields(clientIdentifier string, conn net.Conn, additionalFi
 	return result
 }
 
-func NewBroker(config *Config) (*Broker, error) {
+func NewBroker(config *Config, ops ...Option) (*Broker, error) {
 	if config == nil {
 		config = DefaultConfig
+	}
+
+	o := &options{}
+	for _, op := range ops {
+		op(o)
 	}
 
 	b := &Broker{
@@ -122,9 +116,12 @@ func NewBroker(config *Config) (*Broker, error) {
 		b.tlsConfig = tlsconfig
 	}
 
-	b.auth = b.config.Plugin.Auth
-	b.bridgeMQ = b.config.Plugin.Bridge
-
+	if o.auth != nil {
+		b.auth = o.auth
+	}
+	if o.bridge != nil {
+		b.bridgeMQ = o.bridge
+	}
 	return b, nil
 }
 
@@ -149,18 +146,9 @@ func (b *Broker) Start() {
 		return
 	}
 
-	if b.config.HTTPPort != "" {
-		go InitHTTPMoniter(b)
-	}
-
 	//listen client over tcp
 	if b.config.Port != "" {
 		go b.StartClientListening(false)
-	}
-
-	//listen for cluster
-	if b.config.Cluster.Port != "" {
-		go b.StartClusterListening()
 	}
 
 	//listen for websocket
@@ -255,43 +243,6 @@ func (b *Broker) StartClientListening(Tls bool) {
 
 		tmpDelay = ACCEPT_MIN_SLEEP
 		go b.handleConnection(CLIENT, conn)
-	}
-}
-
-func (b *Broker) StartClusterListening() {
-	var hp string = b.config.Cluster.Host + ":" + b.config.Cluster.Port
-	log.Info("Start Listening cluster on ", zap.String("hp", hp))
-
-	l, e := net.Listen("tcp", hp)
-	if e != nil {
-		log.Error("Error listening on", zap.Error(e))
-		return
-	}
-
-	tmpDelay := 10 * ACCEPT_MIN_SLEEP
-	for {
-		conn, err := l.Accept()
-		if err != nil {
-			if ne, ok := err.(net.Error); ok && ne.Temporary() {
-				log.Error(
-					"Temporary Client Accept Error(%v), sleeping %dms",
-					zap.Error(ne),
-					zap.Duration("sleeping", tmpDelay/time.Millisecond),
-				)
-
-				time.Sleep(tmpDelay)
-				tmpDelay *= 2
-				if tmpDelay > ACCEPT_MAX_SLEEP {
-					tmpDelay = ACCEPT_MAX_SLEEP
-				}
-			} else {
-				log.Error("Accept error", zap.Error(err))
-			}
-			continue
-		}
-		tmpDelay = ACCEPT_MIN_SLEEP
-
-		go b.handleConnection(ROUTER, conn)
 	}
 }
 
@@ -407,10 +358,10 @@ func (b *Broker) handleConnection(typ int, conn net.Conn) {
 
 		b.OnlineOfflineNotification(cid, true)
 		{
-			b.Publish(&bridge.Elements{
+			b.Publish(&Elements{
 				ClientID:  msg.ClientIdentifier,
 				Username:  msg.Username,
-				Action:    bridge.Connect,
+				Action:    ConnectAction,
 				Timestamp: time.Now().Unix(),
 			})
 		}
@@ -470,7 +421,6 @@ func (b *Broker) ConnectToDiscovery() {
 	c.init()
 
 	c.SendConnect()
-	c.SendInfo()
 
 	go c.readLoop()
 	go c.StartPing()

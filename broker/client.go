@@ -17,7 +17,6 @@ import (
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/fhmq/hmq/broker/lib/sessions"
 	"github.com/fhmq/hmq/broker/lib/topics"
-	"github.com/fhmq/hmq/plugins/bridge"
 	"go.uber.org/zap"
 	"golang.org/x/net/websocket"
 )
@@ -405,19 +404,12 @@ func (c *client) processRouterPublish(packet *packets.PublishPacket) {
 }
 
 func (c *client) processClientPublish(packet *packets.PublishPacket) {
-
 	topic := packet.TopicName
-
-	if !c.broker.CheckTopicAuth(PUB, c.info.clientID, c.info.username, c.info.remoteIP, topic) {
-		log.Error("Pub Topics Auth failed, ", zap.String("topic", topic), zap.String("ClientID", c.info.clientID))
-		return
-	}
-
 	//publish to bridge mq
-	cost := c.broker.Publish(&bridge.Elements{
+	cost := c.broker.Publish(&Elements{
 		ClientID:  c.info.clientID,
 		Username:  c.info.username,
-		Action:    bridge.Publish,
+		Action:    PublishAction,
 		Timestamp: time.Now().Unix(),
 		Payload:   string(packet.Payload),
 		Topic:     topic,
@@ -539,17 +531,10 @@ func (c *client) processClientSubscribe(packet *packets.SubscribePacket) {
 
 	for i, topic := range subTopics {
 		t := topic
-		//check topic auth for client
-		if !b.CheckTopicAuth(SUB, c.info.clientID, c.info.username, c.info.remoteIP, topic) {
-			log.Error("Sub topic Auth failed: ", zap.String("topic", topic), zap.String("ClientID", c.info.clientID))
-			retcodes = append(retcodes, QosFailure)
-			continue
-		}
-
-		b.Publish(&bridge.Elements{
+		b.Publish(&Elements{
 			ClientID:  c.info.clientID,
 			Username:  c.info.username,
-			Action:    bridge.Subscribe,
+			Action:    SubscribeAction,
 			Timestamp: time.Now().Unix(),
 			Topic:     topic,
 		})
@@ -746,10 +731,10 @@ func (c *client) processClientUnSubscribe(packet *packets.UnsubscribePacket) {
 		{
 			//publish kafka
 
-			b.Publish(&bridge.Elements{
+			b.Publish(&Elements{
 				ClientID:  c.info.clientID,
 				Username:  c.info.username,
-				Action:    bridge.Unsubscribe,
+				Action:    UnsubscribeAction,
 				Timestamp: time.Now().Unix(),
 				Topic:     topic,
 			})
@@ -804,10 +789,10 @@ func (c *client) Close() {
 	// c.status = Disconnected
 
 	b := c.broker
-	b.Publish(&bridge.Elements{
+	b.Publish(&Elements{
 		ClientID:  c.info.clientID,
 		Username:  c.info.username,
-		Action:    bridge.Disconnect,
+		Action:    DisconnectAction,
 		Timestamp: time.Now().Unix(),
 	})
 

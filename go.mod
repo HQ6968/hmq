@@ -1,4 +1,4 @@
-module github.com/fhmq/hmq
+module github.com/HQ6968/hmq
 
 go 1.18
 

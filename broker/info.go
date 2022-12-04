@@ -4,24 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	simplejson "github.com/bitly/go-simplejson"
+	"github.com/bitly/go-simplejson"
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"go.uber.org/zap"
 )
-
-func (c *client) SendInfo() {
-	if c.status == Disconnected {
-		return
-	}
-	url := c.info.localIP + ":" + c.broker.config.Cluster.Port
-
-	infoMsg := NewInfo(c.broker.id, url)
-	err := c.WriterPacket(infoMsg)
-	if err != nil {
-		log.Error("send info message error, ", zap.Error(err))
-		return
-	}
-}
 
 func (c *client) StartPing() {
 	timeTicker := time.NewTicker(time.Second * 50)
